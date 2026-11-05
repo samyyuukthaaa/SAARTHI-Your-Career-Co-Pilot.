@@ -1,0 +1,9 @@
+{
+  "name": "Saarathi — your career copilot",
+  "short_name": "Saarathi",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#F4F6F5",
+  "theme_color": "#0F5C6E",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
