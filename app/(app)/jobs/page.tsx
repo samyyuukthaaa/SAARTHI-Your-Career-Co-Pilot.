@@ -2,8 +2,8 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { Bookmark, BookmarkCheck, ExternalLink } from "lucide-react";
-import { Chip, LinkButton, PageTitle } from "@/components/ui";
-import { jobs } from "@/lib/mock";
+import { Chip, LinkButton, Loading, PageTitle } from "@/components/ui";
+import { api, useLoad } from "@/lib/api";
 import { useApp } from "@/lib/store";
 
 const filters = ["All", "Hyderabad", "Remote", "Internships"] as const;
@@ -11,6 +11,8 @@ const filters = ["All", "Hyderabad", "Remote", "Internships"] as const;
 export default function Jobs() {
   const { shortlist, toggleShortlist } = useApp();
   const [filter, setFilter] = useState<(typeof filters)[number]>("All");
+  const { data: jobs, error } = useLoad(api.jobs);
+  if (!jobs) return <Loading error={error} label="Ranking today's jobs for you" />;
 
   const shown = jobs.filter((j) =>
     filter === "All" ? true : filter === "Remote" ? j.location.includes("Remote") : filter === "Internships" ? /intern/i.test(j.title) : j.location.includes(filter)
@@ -65,10 +67,14 @@ export default function Jobs() {
                     <li key={r} className="flex gap-2"><span aria-hidden className="text-leaf">✓</span>{r}</li>
                   ))}
                 </ul>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-[0.9rem] text-ink-soft">To learn:</span>
-                  {j.gaps.map((g) => <Chip key={g} tone="gap">{g}</Chip>)}
-                </div>
+                {j.gaps.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-[0.9rem] text-ink-soft">To learn:</span>
+                    {j.gaps.map((g) => <Chip key={g} tone="gap">{g}</Chip>)}
+                  </div>
+                ) : (
+                  <p className="mt-3"><Chip tone="good">You have every skill this job lists</Chip></p>
+                )}
                 <p className="mt-3 text-[0.88rem] text-ink-faint">
                   Selection: {j.round.join(" → ")} · via {j.source} · posted {j.postedDaysAgo}d ago
                 </p>

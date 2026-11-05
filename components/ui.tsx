@@ -54,3 +54,14 @@ export function PageTitle({ title, sub, action }: { title: string; sub?: string;
     </div>
   );
 }
+
+// Shown while a page waits for the backend, or when it can't reach it.
+export function Loading({ error, label = "Loading" }: { error?: string; label?: string }) {
+  if (error)
+    return (
+      <p role="alert" className="rounded-tile bg-brick-wash px-5 py-4 text-brick">
+        {error} Make sure the Saarathi backend is running on port 8000, then reload.
+      </p>
+    );
+  return <p className="animate-pulse py-10 text-ink-soft" role="status">{label}…</p>;
+}

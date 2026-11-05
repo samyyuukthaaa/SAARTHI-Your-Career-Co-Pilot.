@@ -2,12 +2,13 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { BookOpen, Briefcase, CalendarDays, Flame, MessagesSquare, Sun } from "lucide-react";
 import { Logo } from "./Logo";
 import { Genie } from "./Genie";
 import { useApp } from "@/lib/store";
 import { useT, type Key } from "@/lib/i18n";
-import { user } from "@/lib/mock";
+import { api, useLoad, USE_MOCKS } from "@/lib/api";
 
 const nav: { href: string; key: Key; icon: typeof Sun }[] = [
   { href: "/home", key: "today", icon: Sun },
@@ -20,7 +21,13 @@ const nav: { href: string; key: Key; icon: typeof Sun }[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const t = useT();
-  const { lang, setLang } = useApp();
+  const { lang, setLang, hydrate } = useApp();
+  const { data: me } = useLoad(api.me);
+
+  // The server is the source of truth for what's shortlisted and finished.
+  useEffect(() => {
+    if (me && !USE_MOCKS) hydrate({ shortlist: me.shortlist, done: me.done });
+  }, [me, hydrate]);
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[232px_1fr]">
@@ -50,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="mt-auto space-y-4 text-[0.95rem]">
           <p className="flex items-center gap-2 text-ink-soft">
-            <Flame className="h-4 w-4 text-marigold" aria-hidden /> {user.streak}-day streak
+            <Flame className="h-4 w-4 text-marigold" aria-hidden /> {me?.streak ?? 0}-day streak
           </p>
           <LangToggle lang={lang} setLang={setLang} />
         </div>

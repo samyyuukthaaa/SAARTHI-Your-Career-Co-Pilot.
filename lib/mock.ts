@@ -10,7 +10,7 @@ export type Job = {
   match: number; // 0–100, from the Job matcher agent
   reasons: string[]; // plain-language explanation of the match
   gaps: string[]; // skills the user still needs
-  source: "Adzuna" | "JSearch" | "Jooble" | "Greenhouse" | "Lever" | "Remotive";
+  source: string; // Adzuna, JSearch, Jooble, Greenhouse, Lever, Remotive, Arbeitnow
   postedDaysAgo: number;
   applyUrl: string;
   round: string[]; // evaluation steps from the posting
@@ -20,13 +20,14 @@ export type Resource = {
   id: string;
   skill: string;
   title: string;
-  provider: "NPTEL" | "freeCodeCamp" | "MIT OpenCourseWare" | "Khan Academy" | "CS50" | "YouTube" | "MDN";
+  provider: string; // NPTEL, freeCodeCamp, MIT OpenCourseWare, Khan Academy, CS50, YouTube, MDN, ...
   language: string;
   format: "Video course" | "Lecture" | "Article" | "Practice";
   minutes: number;
   level: "Beginner" | "Intermediate";
   url: string;
   why: string; // from the Learning curator agent
+  skillKey?: string; // quiz id for this skill
 };
 
 export type Task = {
@@ -36,6 +37,7 @@ export type Task = {
   detail: string;
   minutes: number;
   href: string;
+  resource?: string; // learning item this task opens
 };
 
 export const user = {
@@ -203,7 +205,23 @@ export const questions = {
   ],
 };
 
-export const report = {
+export type Report = {
+  id: string;
+  round: string;
+  date: string;
+  overall: number;
+  previous: number;
+  headline?: string;
+  summary?: string | null;
+  scores: { label: string; value: number; previous: number; measured?: boolean }[];
+  gaze: { label: string; value: number }[];
+  gazeMeasured?: boolean;
+  moments: { t: string; kind: string; text: string }[];
+  fixes: { title: string; lesson: { id: string; title: string; minutes: number; url: string } | null }[];
+  transcript?: { q: string; a: string; followUp?: string | null; followUpAnswer?: string | null; score: number }[];
+};
+
+export const report: Report = {
   id: "demo",
   round: "HR round · in-person room",
   date: "5 Nov 2026",
@@ -230,8 +248,8 @@ export const report = {
     { t: "5:20", kind: "fix", text: "Ended without asking the interviewer a question." },
   ],
   fixes: [
-    { title: "Hold eye contact through the first sentence of every answer", lesson: "r5" },
-    { title: "Replace \"basically\" with a two-second pause", lesson: "r5" },
-    { title: "Prepare two questions to ask at the end", lesson: "r5" },
+    { title: "Hold eye contact through the first sentence of every answer", lesson: { id: "r5", title: "Structuring answers with the STAR method", minutes: 20, url: "https://www.khanacademy.org" } },
+    { title: "Replace \"basically\" with a two-second pause", lesson: { id: "r5", title: "Structuring answers with the STAR method", minutes: 20, url: "https://www.khanacademy.org" } },
+    { title: "Prepare two questions to ask at the end", lesson: { id: "r5", title: "Structuring answers with the STAR method", minutes: 20, url: "https://www.khanacademy.org" } },
   ],
 };

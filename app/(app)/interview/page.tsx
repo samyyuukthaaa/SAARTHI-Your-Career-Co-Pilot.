@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Building2, Video } from "lucide-react";
 import { LinkButton, PageTitle } from "@/components/ui";
+import { api, useLoad } from "@/lib/api";
 
 const rounds = [
   { id: "hr", name: "HR round", body: "Introduction, motivation, strengths, a tricky situation." },
@@ -18,6 +19,8 @@ const modes = [
 export default function InterviewLobby() {
   const [round, setRound] = useState<(typeof rounds)[number]["id"]>("hr");
   const [mode, setMode] = useState<(typeof modes)[number]["id"]>("room");
+  const { data: me } = useLoad(api.me);
+  const past = me?.reports.slice().reverse() ?? [];
 
   return (
     <>
@@ -56,9 +59,19 @@ export default function InterviewLobby() {
         </p>
       </div>
 
-      <p className="mt-12 border-t border-line pt-6 text-ink-soft">
-        Past interviews: <Link href="/report/demo" className="font-medium text-peacock underline underline-offset-4">HR round, 5 Nov</Link>
-      </p>
+      {past.length > 0 && (
+        <div className="mt-12 border-t border-line pt-6">
+          <h2 className="font-display text-[1.2rem] font-semibold">Past interviews</h2>
+          <ul className="mt-2 divide-y divide-line">
+            {past.map((r) => (
+              <li key={r.id} className="flex items-center justify-between py-2.5">
+                <Link href={`/report/${r.id}`} className="font-medium text-peacock underline underline-offset-4">{r.round}</Link>
+                <span className="text-ink-soft">{r.date} · {r.overall}/100</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </>
   );
 }

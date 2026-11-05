@@ -1,13 +1,19 @@
 "use client";
 import Link from "next/link";
 import { PathThread } from "@/components/PathThread";
-import { Chip, LinkButton, Meter } from "@/components/ui";
-import { jobs, today, user } from "@/lib/mock";
+import { Chip, LinkButton, Loading, Meter } from "@/components/ui";
+import { api, useLoad } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
 export default function Home() {
   const t = useT();
-  const fresh = jobs.slice(0, 2);
+  const me = useLoad(api.me);
+  const plan = useLoad(api.today);
+  const jobs = useLoad(api.jobs);
+  const user = me.data;
+  const today = plan.data;
+  if (!user || !today || !jobs.data) return <Loading error={me.error || plan.error || jobs.error} label="Getting today ready" />;
+  const fresh = jobs.data.slice(0, 2);
   const minutes = today.reduce((s, x) => s + x.minutes, 0);
 
   return (
@@ -22,7 +28,7 @@ export default function Home() {
       <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
         <section aria-labelledby="path">
           <h2 id="path" className="sr-only">Today&apos;s steps</h2>
-          <PathThread tasks={today} goal="Associate Software Engineer, Accenture" />
+          <PathThread tasks={today} goal={user.goal ?? "Shortlist a job to set your goal"} />
         </section>
 
         <div className="space-y-10">
@@ -35,9 +41,13 @@ export default function Home() {
             <div className="mt-3">
               <Meter value={user.readiness} ghost={user.readinessLastWeek} label="Interview readiness" />
             </div>
-            <Link href="/report/demo" className="mt-3 inline-block text-[0.95rem] font-medium text-peacock underline underline-offset-4">
-              See your last interview report
-            </Link>
+            {user.lastReport ? (
+              <Link href={`/report/${user.lastReport.id}`} className="mt-3 inline-block text-[0.95rem] font-medium text-peacock underline underline-offset-4">
+                See your last interview report
+              </Link>
+            ) : (
+              <p className="mt-3 text-[0.95rem] text-ink-soft">Do one mock interview to see how ready you are.</p>
+            )}
           </section>
 
           <section aria-labelledby="fresh" className="border-t border-line pt-8">
@@ -62,7 +72,9 @@ export default function Home() {
 
           <section className="rounded-[20px] bg-peacock-deep p-6 text-paper">
             <h2 className="font-display text-[1.25rem] font-semibold">Practise before it counts</h2>
-            <p className="mt-1 text-paper/80">Last time you looked down while describing your project. Try one HR round focusing on eye contact.</p>
+            <p className="mt-1 text-paper/80">
+              {user.lastReport?.tip ? `From your last interview: ${user.lastReport.tip.toLowerCase()}.` : "Walk into a mock interview room and get a report on what to fix."}
+            </p>
             <LinkButton href="/interview" variant="next" className="mt-5">Open the interview room</LinkButton>
           </section>
         </div>

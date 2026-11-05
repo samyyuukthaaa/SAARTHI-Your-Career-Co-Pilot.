@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 import { FileUp, Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button, Chip } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, useLoad, USE_MOCKS } from "@/lib/api";
 
 const languages = ["English", "हिंदी Hindi", "తెలుగు Telugu", "தமிழ் Tamil"];
 
 // Sample of the 10-minute test: RIASEC interests + Mini-IPIP personality + situational questions.
-const testItems = [
-  { q: "I enjoy fixing something until it works exactly right.", kind: "Interest" },
-  { q: "I feel comfortable explaining my ideas to a group.", kind: "Personality" },
-  { q: "Your teammate missed a deadline the night before a demo. What do you do first?", kind: "Situation", options: ["Finish their part myself", "Call them to understand what happened", "Tell the mentor right away", "Cut the feature from the demo"] },
-];
+// The backend serves the full test (37 items); this preview is used when running on mock data.
 const scale = ["Not like me", "A little", "Somewhat", "Mostly", "Very much like me"];
+const previewItems = [
+  { id: "r2", q: "I enjoy fixing something until it works exactly right.", kind: "Interest", options: scale },
+  { id: "r8", q: "I feel comfortable explaining my ideas to a group.", kind: "Interest", options: scale },
+  { id: "s0", q: "Your teammate missed a deadline the night before a demo. What do you do first?", kind: "Situation", options: ["Finish their part myself", "Call them to understand what happened", "Tell the mentor right away", "Cut the feature from the demo"] },
+];
 
 type Parsed = { skills: string[]; projects: number; education: string };
 
@@ -30,7 +31,23 @@ export default function Onboarding() {
   const [minutes, setMinutes] = useState(90);
   const [q, setQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [saving, setSaving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const { data: serverItems } = useLoad(api.test);
+  const testItems = !USE_MOCKS && serverItems?.length ? serverItems : previewItems;
+
+  const finish = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const byId = Object.fromEntries(Object.entries(answers).map(([i, v]) => [testItems[+i].id, v]));
+      await api.saveProfile({ languages: langs, minutesPerDay: minutes, answers: byId });
+      router.push("/home");
+    } catch (e) {
+      setError((e as Error).message);
+      setSaving(false);
+    }
+  };
 
   const steps = ["Your CV", "Language and time", "Quick test"];
 
@@ -151,11 +168,11 @@ export default function Onboarding() {
         {step === 2 && (
           <section className="animate-rise" key={q}>
             <p className="text-ink-soft">
-              Question {q + 1} of {testItems.length} in this preview · the full test takes about 10 minutes
+              Question {q + 1} of {testItems.length} · {testItems[q].kind} · about {Math.max(1, Math.round(((testItems.length - q) * 15) / 60))} min left
             </p>
             <h1 className="display-narrow mt-4 max-w-2xl text-[2rem] leading-tight text-ink">{testItems[q].q}</h1>
             <div className="mt-8 grid gap-2.5" role="radiogroup" aria-label="Your answer">
-              {(testItems[q].options ?? scale).map((label, i) => (
+              {testItems[q].options.map((label, i) => (
                 <button
                   key={label}
                   role="radio"
@@ -175,12 +192,13 @@ export default function Onboarding() {
               <Button variant="quiet" onClick={() => (q === 0 ? setStep(1) : setQ(q - 1))}>Back</Button>
               <Button
                 variant={q === testItems.length - 1 ? "next" : "primary"}
-                disabled={answers[q] === undefined}
-                onClick={() => (q < testItems.length - 1 ? setQ(q + 1) : router.push("/home"))}
+                disabled={answers[q] === undefined || saving}
+                onClick={() => (q < testItems.length - 1 ? setQ(q + 1) : finish())}
               >
-                {q === testItems.length - 1 ? "See my plan" : "Next question"}
+                {q === testItems.length - 1 ? (saving ? "Building your plan…" : "See my plan") : "Next question"}
               </Button>
             </div>
+            {error && <p className="mt-3 text-brick" role="alert">{error}</p>}
           </section>
         )}
       </main>

@@ -19,16 +19,20 @@ export default function OnlinePage() {
 function OnlineInterview() {
   const router = useRouter();
   const round = (useSearchParams().get("round") as Round) || "hr";
-  const s = useInterviewSession(round === "technical" ? "technical" : "hr");
+  const s = useInterviewSession(round === "technical" ? "technical" : "hr", "online");
   const track = useTracking({ enabled: true });
   const ready = track.status === "ready";
 
   const { phase, recordEye } = s;
   useEffect(() => {
-    if (phase === "answering" && ready) recordEye(track.snapshot.eyeContact);
+    if (phase === "answering" && ready) recordEye(track.snapshot);
   }, [track.snapshot, phase, ready, recordEye]);
 
-  const joined = s.phase !== "waiting";
+  const joined = s.phase !== "waiting" && s.phase !== "connecting";
+  const toReport = async () => {
+    const id = await s.finish();
+    router.push(id ? `/report/${id}` : "/interview");
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0B2A33] text-paper">
@@ -61,18 +65,22 @@ function OnlineInterview() {
           <div>
             <h1 className="display-wide text-[2rem]">Kavya Rao will join shortly</h1>
             <p className="mt-2 text-paper/75">HR Manager. Sit where your face is well lit, and look at her face on screen, not at yourself.</p>
-            <Button variant="next" className="mt-6 px-7 py-3" onClick={s.start}>Join interview</Button>
+            <Button variant="next" className="mt-6 px-7 py-3" onClick={s.start} disabled={s.phase === "connecting"}>
+              {s.phase === "connecting" ? "Connecting…" : "Join interview"}
+            </Button>
+            {s.error && <p className="mt-3 text-marigold" role="alert">{s.error}</p>}
           </div>
         ) : (
           <>
             <div className="mx-auto w-full max-w-3xl text-center" aria-live="polite">
               <p className="text-[1.15rem] leading-snug">{s.caption}</p>
+              {s.phase === "answering" && s.heard && <p className="mx-auto mt-2 max-w-2xl text-[0.95rem] italic text-paper/60">{s.heard}</p>}
               {s.hint && <p className="mx-auto mt-3 max-w-2xl rounded-tile bg-marigold px-4 py-2.5 text-left text-ink">{s.hint}</p>}
             </div>
-            <Controls canAnswer={s.phase === "answering"} onNext={s.next} onHelp={s.help} onEnd={() => router.push("/report/demo")} />
+            <Controls canAnswer={s.phase === "answering"} onNext={s.next} onHelp={s.help} onEnd={toReport} />
             {s.phase === "done" && (
               <div className="text-center">
-                <Button variant="next" onClick={() => router.push("/report/demo")}>See your report</Button>
+                <Button variant="next" onClick={toReport}>See your report</Button>
               </div>
             )}
           </>

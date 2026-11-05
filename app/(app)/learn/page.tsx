@@ -1,12 +1,15 @@
 "use client";
 import clsx from "clsx";
 import { Check, ExternalLink } from "lucide-react";
-import { Chip, LinkButton, PageTitle } from "@/components/ui";
-import { resources } from "@/lib/mock";
+import Link from "next/link";
+import { Chip, LinkButton, Loading, PageTitle } from "@/components/ui";
+import { api, useLoad } from "@/lib/api";
 import { useApp } from "@/lib/store";
 
 export default function Learn() {
-  const { done, toggleDone } = useApp();
+  const { done, toggleDone, shortlist } = useApp();
+  const { data: resources, error } = useLoad(api.resources, [shortlist.join()]);
+  if (!resources) return <Loading error={error} label="Picking lessons for your skill gaps" />;
   const skills = Array.from(new Set(resources.map((r) => r.skill)));
 
   return (
@@ -24,7 +27,12 @@ export default function Learn() {
             <section key={skill} aria-labelledby={`s-${skill}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line pb-3">
                 <h2 id={`s-${skill}`} className="display-narrow text-[1.7rem] text-ink">{skill}</h2>
-                <span className="text-ink-soft">{finished} of {items.length} done</span>
+                <span className="flex items-center gap-4 text-ink-soft">
+                  {finished} of {items.length} done
+                  {items[0].skillKey && finished < items.length && (
+                    <Link href={`/learn/quiz/${items[0].skillKey}`} className="font-medium text-peacock underline underline-offset-4">Quiz</Link>
+                  )}
+                </span>
               </div>
               <ul className="divide-y divide-line">
                 {items.map((r) => {
@@ -57,10 +65,10 @@ export default function Learn() {
                   );
                 })}
               </ul>
-              {finished === items.length && (
+              {finished === items.length && items[0].skillKey && (
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-tile bg-marigold-wash px-5 py-3">
-                  <p>Ready to check it stuck? 8 questions, about 10 minutes.</p>
-                  <LinkButton href="/learn" variant="next" className="py-2">Take the quiz</LinkButton>
+                  <p>Ready to check it stuck? A few questions, about 5 minutes.</p>
+                  <LinkButton href={`/learn/quiz/${items[0].skillKey}`} variant="next" className="py-2">Take the quiz</LinkButton>
                 </div>
               )}
             </section>

@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, Send, X } from "lucide-react";
 import { Wheel } from "./Logo";
 import { useApp } from "@/lib/store";
+import { api, USE_MOCKS } from "@/lib/api";
+import { listen, canListen } from "@/lib/speech";
 import { useT } from "@/lib/i18n";
 
 type Msg = { from: "you" | "saarathi"; text: string };
 
-// Demo replies. In production every message goes to the Genie agent (AgentFoundry) via FastAPI,
-// which routes to the Job matcher, Learning curator or Prep planner and replies in the user's language.
+// Offline replies for mock mode. With the backend running, every message goes to the Genie agent,
+// which routes to the Job matcher, Learning curator, Prep planner or Report agent and replies in the user's language.
 const replies: { match: RegExp; en: string; hi: string }[] = [
   {
     match: /today|aaj|आज|do/i,
@@ -38,23 +40,51 @@ export function Genie() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [hearing, setHearing] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [msgs]);
 
-  const send = (text: string) => {
-    if (!text.trim()) return;
-    const r = replies.find((x) => x.match.test(text));
-    const answer = r ? r[lang] : fallback[lang];
-    setMsgs((m) => [...m, { from: "you", text }, { from: "saarathi", text: answer }]);
+  const send = async (text: string) => {
+    if (!text.trim() || busy) return;
+    setMsgs((m) => [...m, { from: "you", text }]);
     setInput("");
-    // Placeholder voice. Replace with Sarvam/Bhashini TTS audio from the backend.
+    let answer: string;
+    if (USE_MOCKS) {
+      const r = replies.find((x) => x.match.test(text));
+      answer = r ? r[lang] : fallback[lang];
+    } else {
+      setBusy(true);
+      try {
+        answer = (await api.genie(text, lang)).reply;
+      } catch {
+        answer = lang === "hi" ? "अभी सर्वर से जुड़ नहीं पा रहा। थोड़ी देर में फिर कोशिश करें।" : "I can't reach Saarathi's server right now. Try again in a moment.";
+      } finally {
+        setBusy(false);
+      }
+    }
+    setMsgs((m) => [...m, { from: "saarathi", text: answer }]);
+    // Browser voice for now. Swap for Sarvam/Bhashini TTS audio from the backend.
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const u = new SpeechSynthesisUtterance(answer);
-      u.lang = lang === "hi" ? "hi-IN" : "en-IN";
+      u.lang = /[\u0900-\u097F]/.test(answer) ? "hi-IN" : "en-IN";
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     }
+  };
+
+  const speak = () => {
+    if (!canListen()) {
+      setMsgs((m) => [...m, { from: "saarathi", text: lang === "hi" ? "इस ब्राउज़र में आवाज़ इनपुट नहीं है। Chrome आज़माएँ या टाइप करें।" : "Voice input isn't available in this browser. Try Chrome, or type instead." }]);
+      return;
+    }
+    setHearing(true);
+    listen(lang === "hi" ? "hi-IN" : "en-IN")
+      .then((heard) => {
+        if (heard) send(heard);
+      })
+      .finally(() => setHearing(false));
   };
 
   const suggestions = lang === "hi" ? ["आज मुझे क्या करना है?", "कोई नई नौकरी?", "मुझे घबराहट हो रही है"] : ["What do I do today?", "Any new jobs?", "I'm nervous about interviews"];
@@ -101,6 +131,7 @@ export function Genie() {
                 {m.text}
               </p>
             ))}
+            {busy && <p className="w-fit animate-pulse rounded-[16px] bg-mist px-3.5 py-2 text-ink-soft">…</p>}
             <div ref={end} />
           </div>
           <div className="flex flex-wrap gap-2 px-4 pb-3">
@@ -117,7 +148,13 @@ export function Genie() {
               send(input);
             }}
           >
-            <button type="button" aria-label="Speak (voice input)" className="rounded-pill bg-mist p-2.5 text-peacock-deep hover:bg-peacock-wash">
+            <button
+              type="button"
+              onClick={speak}
+              aria-pressed={hearing}
+              aria-label={hearing ? "Listening" : "Speak (voice input)"}
+              className={clsx("rounded-pill p-2.5", hearing ? "animate-pulse bg-marigold text-ink" : "bg-mist text-peacock-deep hover:bg-peacock-wash")}
+            >
               <Mic className="h-5 w-5" />
             </button>
             <input

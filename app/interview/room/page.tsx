@@ -34,7 +34,7 @@ function InPersonInterview() {
   const [calMsg, setCalMsg] = useState("");
   const [nodKey, setNodKey] = useState(0);
   const track = useTracking({ enabled: camOn });
-  const s = useInterviewSession(round);
+  const s = useInterviewSession(round, "room");
   const ready = track.status === "ready";
   const away = useRef({ since: 0, reacted: -1 });
 
@@ -47,15 +47,19 @@ function InPersonInterview() {
   };
 
   // Start the questions once seated (and calibrated, if the camera is on).
-  const { phase: sPhase, start, recordEye, index, say, next } = s;
+  const { phase: sPhase, start, recordEye, index, say, next, error } = s;
   useEffect(() => {
-    if (stage === "interview" && sPhase === "waiting") start();
-  }, [stage, sPhase, start]);
+    if (stage === "interview" && sPhase === "waiting" && !error) start();
+  }, [stage, sPhase, start, error]);
+  const toReport = async () => {
+    const id = await s.finish();
+    router.push(id ? `/report/${id}` : "/interview");
+  };
 
   // Eye-contact sampling and the "are you with me?" reaction.
   useEffect(() => {
     if (sPhase !== "answering" || !ready) return;
-    recordEye(track.snapshot.eyeContact);
+    recordEye(track.snapshot);
     const now = performance.now();
     if (track.snapshot.eyeContact || !track.snapshot.faceFound) away.current.since = now;
     else if (now - away.current.since > 4000 && away.current.reacted !== index) {
@@ -153,16 +157,17 @@ function InPersonInterview() {
       {stage === "interview" && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/55 to-transparent px-4 pb-6 pt-16 text-paper">
           <div className="mx-auto max-w-3xl text-center" aria-live="polite">
-            <p className="text-[1.15rem] leading-snug">{s.caption}</p>
+            <p className="text-[1.15rem] leading-snug">{s.error || s.caption}</p>
+            {s.phase === "answering" && s.heard && <p className="mx-auto mt-2 max-w-2xl text-[0.95rem] italic text-paper/70">{s.heard}</p>}
             {s.hint && <p className="mx-auto mt-3 max-w-2xl rounded-tile bg-marigold px-4 py-2.5 text-left text-ink">{s.hint}</p>}
           </div>
           <div className="mt-4">
             {s.phase === "done" ? (
               <div className="text-center">
-                <Button variant="next" onClick={() => router.push("/report/demo")}>See your report</Button>
+                <Button variant="next" onClick={toReport}>See your report</Button>
               </div>
             ) : (
-              <Controls canAnswer={s.phase === "answering"} onNext={finishAnswer} onHelp={s.help} onEnd={() => router.push("/report/demo")} />
+              <Controls canAnswer={s.phase === "answering"} onNext={finishAnswer} onHelp={s.help} onEnd={toReport} />
             )}
           </div>
         </div>
